@@ -3,7 +3,7 @@ Copyright 2026 Tealbrick
 
 The scripts, workflows and documentation in this repository are licensed under the Apache License 2.0 (LICENSE).
 
-The release files published in this repository's GitHub releases are copies of releases of other Teal Brick
-repositories. Each file keeps the licence of its source: the Teal Brick CLI (@opt2-tealbrick/cli) is proprietary
+The release files published in this repository's GitHub releases are copies of releases of other Tealbrick
+repositories. Each file keeps the licence of its source: the Tealbrick CLI (@opt2-tealbrick/cli) is proprietary
 ("SEE LICENSE IN LICENSE" inside the package); a file's licence is stated inside the file. Publication here grants
 no additional rights.

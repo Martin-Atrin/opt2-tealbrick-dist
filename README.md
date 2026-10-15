@@ -1,6 +1,6 @@
 # opt2-tealbrick-dist
 
-Public download host for the release files of Teal Brick's **private** repositories (decisions C164, C173, C175).
+Public download host for the release files of Tealbrick's **private** repositories (decisions C164, C173, C175).
 This repository holds no product source. It holds:
 
 - release files, one GitHub release per source release, named `<source repo>-<source tag>`
@@ -48,4 +48,4 @@ Node.js 24 or newer runs the TypeScript files directly. The mirror itself uses o
 ## Licence
 
 The scripts and workflow files of this repository are Apache-2.0 (`LICENSE`). Mirrored release files keep their own
-licence; see `NOTICE`. The Teal Brick CLI is proprietary.
+licence; see `NOTICE`. The Tealbrick CLI is proprietary.
