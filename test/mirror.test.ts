@@ -81,7 +81,14 @@ function makeIndex(over: Partial<IndexBody["releases"][number]> = {}, extra: Ind
 
 type FakeAsset = { id: number; name: string; data: Buffer };
 /** In-memory GitHub: public download URLs, the REST API and uploads; private repos need the read token, writes need the write token. */
-function fakeGitHub(opts: { index: IndexBody; jws?: string; indexText?: string; source?: Buffer; noSourceAsset?: boolean }) {
+function fakeGitHub(opts: {
+  index: IndexBody;
+  jws?: string;
+  indexText?: string;
+  source?: Buffer;
+  noSourceAsset?: boolean;
+  extraSources?: { tag: string; name: string; data: Buffer }[];
+}) {
   let nextId = 100;
   const repos = new Map<string, Map<string, { id: number; assets: FakeAsset[] }>>();
   const rel = (repo: string, tag: string, create = false) => {
@@ -92,6 +99,7 @@ function fakeGitHub(opts: { index: IndexBody; jws?: string; indexText?: string; 
   };
   const add = (repo: string, tag: string, name: string, data: Buffer) => rel(repo, tag, true)?.assets.push({ id: nextId++, name, data });
   if (!opts.noSourceAsset) add(CLI, "cli-v0.2.0", "opt2-tealbrick-cli-0.2.0.tgz", opts.source ?? tgz);
+  for (const x of opts.extraSources ?? []) add(CLI, x.tag, x.name, x.data);
   const writes: string[] = [];
   const reads: { url: string; auth: string | null }[] = [];
   const indexText = opts.indexText ?? JSON.stringify(opts.index);
@@ -297,4 +305,47 @@ test("the workflow: schedule + manual, contents: write only, read secret by name
   assert.match(wf, /workflow_dispatch/);
   assert.match(wf, /schedule:/);
   for (const u of wf.matchAll(/uses: (\S+)/g)) assert.match(u[1] as string, /@[0-9a-f]{40}$/, "actions pinned by commit");
+});
+
+test("C181: a kind package entry (relay) on this host is mirrored like cli: <repo>-<tag>, bytes checked against the signed digests", async () => {
+  const relay = Buffer.from("fake relay tarball bytes v0.1.0");
+  const relayUrl = `https://github.com/${DIST}/releases/download/opt2-tealbrick-cli-relay-v0.1.0/opt2-tealbrick-relay-0.1.0.tgz`;
+  const entry = {
+    id: "rel_01JA0000000000000000000010",
+    product: "relay",
+    kind: "package",
+    version: "0.1.0",
+    repo: CLI,
+    tag: "relay-v0.1.0",
+    artifact: { url: relayUrl, sha256: `sha256:${hex(relay)}`, integrity: sri(relay) },
+  };
+  const index = makeIndex({}, [entry]);
+  assert.deepEqual(
+    planMirror(index, DIST).items.map((i) => [i.distTag, i.file, i.sourceTag]),
+    [
+      ["opt2-tealbrick-cli-cli-v0.2.0", "opt2-tealbrick-cli-0.2.0.tgz", "cli-v0.2.0"],
+      ["opt2-tealbrick-cli-relay-v0.1.0", "opt2-tealbrick-relay-0.1.0.tgz", "relay-v0.1.0"],
+    ],
+  );
+  const gh = fakeGitHub({ index, extraSources: [{ tag: "relay-v0.1.0", name: "opt2-tealbrick-relay-0.1.0.tgz", data: relay }] });
+  const r = await run(gh);
+  assert.deepEqual(r.alarms, []);
+  assert.deepEqual(r.published.sort(), ["opt2-tealbrick-cli-cli-v0.2.0/opt2-tealbrick-cli-0.2.0.tgz", "opt2-tealbrick-cli-relay-v0.1.0/opt2-tealbrick-relay-0.1.0.tgz"]);
+  assert.deepEqual(gh.distFile("opt2-tealbrick-cli-relay-v0.1.0", "opt2-tealbrick-relay-0.1.0.tgz"), relay);
+  // fires: tampered relay bytes in the private release are never published
+  const bad = fakeGitHub({ index, extraSources: [{ tag: "relay-v0.1.0", name: "opt2-tealbrick-relay-0.1.0.tgz", data: Buffer.from("evil") }] });
+  const rb = await run(bad);
+  assert.match(rb.alarms.join(), /opt2-tealbrick-relay-0\.1\.0\.tgz: SOURCE BYTES DIFFER/);
+  assert.equal(bad.distFile("opt2-tealbrick-cli-relay-v0.1.0", "opt2-tealbrick-relay-0.1.0.tgz"), undefined);
+});
+
+test("first scheduled run before any dist entry, without the read token: copies only the index, no alarm (C177 state)", async () => {
+  const index = makeIndex();
+  index.releases = index.releases.filter((x) => x.kind !== "cli");
+  const gh = fakeGitHub({ index, noSourceAsset: true });
+  const r = await run(gh, { read: undefined });
+  assert.deepEqual(r.alarms, []);
+  assert.deepEqual(r.published, []);
+  assert.equal(r.indexCopied, true);
+  assert.ok(!gh.reads.some((x) => x.url.includes(`/repos/${CLI}/`)), "no private-repo request without a dist entry");
 });
