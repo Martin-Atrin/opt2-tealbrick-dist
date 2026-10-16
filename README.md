@@ -13,7 +13,7 @@ This repository is public by design. It must never contain secrets or personal d
 
 - No API keys, tokens, passwords, private keys, deployment secrets, `.env` files or connection strings. The only secret it uses is the repository secret `TB_PRIVATE_READ_TOKEN`, which lives in GitHub and is never printed.
 - No personal names, private agent configurations or customer data, in the code, issues or pull requests.
-- GitHub secret scanning and push protection are not enabled on this repository, and it has no gitleaks step or pre-commit hook. Review every change for secrets by hand.
+- GitHub secret scanning and push protection are not enabled on this repository, and it has no pre-commit hook. The `secret-scan` job in `test.yml` runs gitleaks on every push and pull request; still review every change for secrets.
 - If a secret is committed anyway: rotate it first, then remove it from history.
 
 ## What this repo holds
@@ -64,7 +64,7 @@ Node.js 24 or newer runs the TypeScript files directly. The mirror itself uses o
 
 ## CI
 
-This repo does not use the Woodpecker `ci-v9.9` template. GitHub Actions run `test.yml` (typecheck and tests on every push to main and pull request) and `mirror.yml`.
+This repo does not use the Woodpecker `ci-v9.9` template. GitHub Actions run `test.yml` (typecheck, tests and the gitleaks `secret-scan` job on every push to main and pull request) and `mirror.yml`.
 
 ## How it ships
 

@@ -19,3 +19,15 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
+  # Same scanner and pinned image as the Woodpecker `secret-scan` step of the opt2 template (ci-v9.9). This repo runs on GitHub
+  # Actions only, so the step is a job here. Read-only token, no secrets; the checkout keeps no credentials.
+  secret-scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo
+          ghcr.io/gitleaks/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854
+          dir --redact --no-banner --verbose .
