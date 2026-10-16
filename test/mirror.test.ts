@@ -15,8 +15,8 @@ import {
   verifyIndex,
 } from "../scripts/mirror.ts";
 
-const DIST = "Martin-Atrin/opt2-tealbrick-dist";
-const CLI = "Martin-Atrin/opt2-tealbrick-cli";
+const DIST = "Tealbrick/opt2-tealbrick-dist";
+const CLI = "Tealbrick/opt2-tealbrick-cli";
 const NOW = 1_800_000_000;
 
 function keyPair(): { jwk: Jwk; priv: KeyObject } {
@@ -63,15 +63,15 @@ function makeIndex(over: Partial<IndexBody["releases"][number]> = {}, extra: Ind
         ...over,
       },
       // an app entry (image) and a desktop entry on GitHub: not this host, ignored
-      { id: "rel_a", product: "kanban", kind: "app", version: "0.1.0", repo: "Martin-Atrin/opt2-tealbrick-kanban", tag: "v0.1.0", artifact: null },
+      { id: "rel_a", product: "kanban", kind: "app", version: "0.1.0", repo: "Tealbrick/opt2-tealbrick-kanban", tag: "v0.1.0", artifact: null },
       {
         id: "rel_d",
         product: "tbd",
         kind: "desktop",
         version: "0.1.0",
-        repo: "Martin-Atrin/opt2-tealbrick-tbd",
+        repo: "Tealbrick/opt2-tealbrick-tbd",
         tag: "v0.1.0",
-        artifact: { url: "https://github.com/Martin-Atrin/opt2-tealbrick-tbd/releases/download/v0.1.0/TBD.zip", sha256: `sha256:${"a".repeat(64)}` },
+        artifact: { url: "https://github.com/Tealbrick/opt2-tealbrick-tbd/releases/download/v0.1.0/TBD.zip", sha256: `sha256:${"a".repeat(64)}` },
       },
       ...extra,
     ],
@@ -205,6 +205,38 @@ test("plan: only entries on this dist host; the tag must be <repo>-<entry tag>",
   const reserved = planMirror(makeIndex({ artifact: { url: `https://github.com/${DIST}/releases/download/registry/index.json`, sha256: `sha256:${"a".repeat(64)}` } }), DIST);
   assert.equal(reserved.items.length, 0);
   assert.equal(reserved.problems.length, 1);
+});
+
+test("plan (C206): an entry repo under the current owner or the legacy owner is mirrored; any other owner is an alarm", () => {
+  const cur = planMirror(makeIndex({ repo: "Tealbrick/opt2-tealbrick-cli" }), DIST);
+  assert.deepEqual(cur.problems, []);
+  assert.deepEqual(cur.items.map((i) => i.sourceRepo), [CLI]);
+  // legacy signed entries keep the old repo string; the source is read from the current owner
+  const legacy = planMirror(makeIndex({ repo: "Martin-Atrin/opt2-tealbrick-cli" }), DIST);
+  assert.deepEqual(legacy.problems, []);
+  assert.deepEqual(
+    legacy.items.map((i) => [i.distTag, i.file, i.sourceRepo, i.sourceTag]),
+    [["opt2-tealbrick-cli-cli-v0.2.0", "opt2-tealbrick-cli-0.2.0.tgz", CLI, "cli-v0.2.0"]],
+  );
+  for (const repo of ["Someone/opt2-tealbrick-cli", "Tealbrick-evil/opt2-tealbrick-cli", "xTealbrick/opt2-tealbrick-cli", "Tealbrick/other-cli"]) {
+    const other = planMirror(makeIndex({ repo }), DIST);
+    assert.equal(other.items.length, 0, repo);
+    assert.match(other.problems.join(), /url\/repo\/tag not mirrorable/, repo);
+  }
+});
+
+test("run (C206): a legacy-owner index entry is mirrored from the current-owner source repo; a foreign owner is never read", async () => {
+  const gh = fakeGitHub({ index: makeIndex({ repo: "Martin-Atrin/opt2-tealbrick-cli" }) });
+  const r = await run(gh);
+  assert.deepEqual(r.alarms, []);
+  assert.deepEqual(r.published, ["opt2-tealbrick-cli-cli-v0.2.0/opt2-tealbrick-cli-0.2.0.tgz"]);
+  assert.deepEqual(gh.distFile("opt2-tealbrick-cli-cli-v0.2.0", "opt2-tealbrick-cli-0.2.0.tgz"), tgz);
+  assert.ok(!gh.reads.some((x) => x.url.includes("/repos/Martin-Atrin/")));
+  const bad = fakeGitHub({ index: makeIndex({ repo: "Someone/opt2-tealbrick-cli" }) });
+  const rb = await run(bad);
+  assert.match(rb.alarms.join(), /not mirrorable/);
+  assert.deepEqual(rb.published, []);
+  assert.ok(!bad.reads.some((x) => x.url.includes("/repos/Someone/")));
 });
 
 test("first run publishes the tarball + side files under the index tag and copies the index to `registry`; a second run writes nothing", async () => {

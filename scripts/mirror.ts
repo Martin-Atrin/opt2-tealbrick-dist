@@ -1,5 +1,5 @@
 /**
- * C164/C175 pull mirror. Runs in the PUBLIC repo Martin-Atrin/opt2-tealbrick-dist (GitHub Actions, schedule + manual).
+ * C164/C175 pull mirror. Runs in the PUBLIC repo Tealbrick/opt2-tealbrick-dist (GitHub Actions, schedule + manual).
  *
  * 1. Reads the signed release index (index.json + index.jws) and verifies it with the PINNED release keys
  *    (keys/release-keys.json): EdDSA JWS, typ tb-release-index+jws, kid = RFC 7638 thumbprint of a pinned key, claims
@@ -24,7 +24,9 @@ import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-export const OWNER = "Martin-Atrin";
+export const OWNER = "Tealbrick";
+// C206: repos moved from Martin-Atrin to Tealbrick; old signed index entries keep the old repo string
+export const LEGACY_OWNERS = ["Martin-Atrin"] as const;
 export const DEFAULT_DIST_REPO = `${OWNER}/opt2-tealbrick-dist`;
 export const PLATFORM_REPO = `${OWNER}/opt2-tealbrick-platform`;
 export const DEFAULT_INDEX_BASE = `https://github.com/${PLATFORM_REPO}/releases/download/registry`;
@@ -157,6 +159,9 @@ export interface MirrorItem {
   artifact: { sha256: string; integrity?: string };
 }
 
+/** Index entry `repo`: current owner or a legacy owner (C206). Any other owner is not mirrorable (alarm). */
+const REPO_RE = new RegExp(`^(?:${[OWNER, ...LEGACY_OWNERS].join("|")})/(opt2-tealbrick-[a-z0-9-]+)$`);
+
 /** Which files of a verified index belong on this dist host. Malformed entries for this host are problems (alarms). Pure. */
 export function planMirror(body: IndexBody, distRepo: string): { items: MirrorItem[]; problems: string[] } {
   const base = `https://github.com/${distRepo}/releases/download/`;
@@ -167,7 +172,7 @@ export function planMirror(body: IndexBody, distRepo: string): { items: MirrorIt
     if (typeof url !== "string" || !url.startsWith(base)) continue;
     const where = `${r.product}@${r.version}`;
     const m = /^([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)$/.exec(url.slice(base.length));
-    const repoName = /^Martin-Atrin\/(opt2-tealbrick-[a-z0-9-]+)$/.exec(r.repo ?? "")?.[1];
+    const repoName = REPO_RE.exec(r.repo ?? "")?.[1];
     if (!m || !repoName || typeof r.tag !== "string" || !/^[A-Za-z0-9._-]+$/.test(r.tag)) {
       problems.push(`${where}: url/repo/tag not mirrorable (${url})`);
       continue;
@@ -186,7 +191,7 @@ export function planMirror(body: IndexBody, distRepo: string): { items: MirrorIt
       problems.push(`${where}: malformed signed digests`);
       continue;
     }
-    items.push({ entry: where, sourceRepo: r.repo, sourceTag: r.tag, distTag, file, artifact: { sha256: a.sha256, ...(a.integrity ? { integrity: a.integrity } : {}) } });
+    items.push({ entry: where, sourceRepo: `${OWNER}/${repoName}`, sourceTag: r.tag, distTag, file, artifact: { sha256: a.sha256, ...(a.integrity ? { integrity: a.integrity } : {}) } });
   }
   return { items, problems };
 }
