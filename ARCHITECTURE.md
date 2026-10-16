@@ -1,6 +1,6 @@
 # Tealbrick dist: architecture
 
-State: verified against the repo on 2026-10-16. Claims cite paths in this repo. Anything not verified is marked UNVERIFIED. For the whole system see the system `ARCHITECTURE.md` and `SYSTEM-OVERVIEW.md`.
+State: verified against the repo on 2026-10-17. Claims cite paths in this repo. Anything not verified is marked UNVERIFIED. For the whole system see the system `ARCHITECTURE.md` and `SYSTEM-OVERVIEW.md`.
 
 ## 1. Pull-model mirror (`scripts/mirror.ts`)
 
@@ -23,5 +23,6 @@ Downloads do not trust this host. The installer and `self-update` verify the sig
 - `cli` and `relay` entries are missing from the index until the first `cli-v*` tag.
 - The read token must be re-scoped when repositories change visibility or move.
 - Scheduled runs can lag (GitHub delays schedules of new repos); dispatch by hand after a release.
-- It does not use the standard CI template (no Woodpecker file). UNVERIFIED whether intentional.
+- It does not use the standard CI template (no Woodpecker file, no `tealbrick-ci.json`); `opt2-tealbrick-dist` is not in `OPT2_REPOS` of `ci/tb-ci.ts` in the platform repo.
+- There is no secret-scan step: GitHub secret scanning is disabled and the repo has no gitleaks step or pre-commit hook.
 - The platform repo is public, so the mirror's API fallback for a private platform repo is not exercised.

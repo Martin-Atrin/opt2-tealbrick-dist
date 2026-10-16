@@ -3,8 +3,8 @@
 Public download host for the release files of Tealbrick's **private** repositories (decisions C164, C173, C175). A pull-model mirror job copies verified files from private releases. This repository holds no product source.
 
 - Repository: `Tealbrick/opt2-tealbrick-dist` (GitHub organisation `Tealbrick`)
-- Status: main `75dd7ed` (owner switch to the Tealbrick org). The index lists 38 `package` entries (spec, manifest, miniapp-sdk, conformance, template, ui and legacy tarballs) that this host serves; no `cli` or `relay` entry yet. Library pins of the other repos (`@opt2-tealbrick/spec`, `manifest`, `miniapp-sdk`, `conformance`, `ui`) point to release files on this host.
-- Visibility target: PUBLIC by design (C164, C175).
+- Status: the repository belongs to the Tealbrick org (C206). The signed index (checked 2026-10-17) lists 38 `package` entries (spec, manifest, miniapp-sdk, conformance, create-tealbrick-miniapp, ui and legacy tarballs) that this host serves; no `cli` or `relay` entry yet. Library pins of the other repos (`@opt2-tealbrick/spec`, `manifest`, `miniapp-sdk`, `conformance`, `ui`) point to release files on this host.
+- Visibility: PUBLIC by design (C164, C175).
 - Licence: Apache-2.0 for the scripts, workflows and documentation (`LICENSE`). Mirrored release files keep their own licence; see `NOTICE`. The Tealbrick CLI is proprietary.
 
 ## No secrets policy
@@ -13,12 +13,12 @@ This repository is public by design. It must never contain secrets or personal d
 
 - No API keys, tokens, passwords, private keys, deployment secrets, `.env` files or connection strings. The only secret it uses is the repository secret `TB_PRIVATE_READ_TOKEN`, which lives in GitHub and is never printed.
 - No personal names, private agent configurations or customer data, in the code, issues or pull requests.
-- GitHub secret scanning with push protection is enabled.
+- GitHub secret scanning and push protection are not enabled on this repository, and it has no gitleaks step or pre-commit hook. Review every change for secrets by hand.
 - If a secret is committed anyway: rotate it first, then remove it from history.
 
 ## What this repo holds
 
-- release files, one GitHub release per source release, named `<source repo>-<source tag>` (for example `opt2-tealbrick-cli-cli-v0.2.0` with `opt2-tealbrick-cli-0.2.0.tgz`, `.sha256` and `.integrity`);
+- release files, one GitHub release per source release, named `<source repo>-<source tag>` (for example `opt2-tealbrick-bridge-cli-v0.1.22` with `opt2-tealbrick-cli-0.1.22.tgz`, `.sha256` and `.integrity`);
 - a copy of the signed release index in the release `registry` (`index.json` + `index.jws`), the second index base of the one-line installer (`curl -fsSL https://tealbrick.com/install.sh | bash`) and of `tealbrick self-update`;
 - the mirror workflow and its script (`.github/workflows/mirror.yml`, `scripts/mirror.ts`).
 
@@ -51,14 +51,14 @@ Node.js 24 or newer runs the TypeScript files directly. The mirror itself uses o
 |---|---|
 | `scripts/mirror.ts` | The mirror |
 | `test/mirror.test.ts` | 16 tests |
-| `keys/release-keys.json` | The ONE pinned release public key (a test asserts it equals the platform key set) |
+| `keys/release-keys.json` | The ONE pinned release public key (a test asserts its `x` value; it equals the platform `registry/keys.json` today, but no test reads that file) |
 | `.github/workflows/mirror.yml`, `test.yml` | Mirror (schedule `7,22,37,52 * * * *`, manual, optional `repository_dispatch`) and tests |
 
 ## Configuration
 
 | Name | Where | What |
 |---|---|---|
-| `TB_PRIVATE_READ_TOKEN` | repository secret | Fine-grained token, **read-only**, resource owner `Tealbrick`: contents and release metadata of the private source repos (cli, sdk, specs, packages, bridge, tbd). No write scopes. Re-scope it when a repo changes visibility or moves. |
+| `TB_PRIVATE_READ_TOKEN` | repository secret | Fine-grained token, **read-only**, resource owner `Tealbrick`: contents and release metadata of the source repos that are or become private (cli, sdk, specs, packages, bridge, tbd; only cli is private today, the others are public until the planned flip). No write scopes. Re-scope it when a repo changes visibility or moves. The real scopes of the secret cannot be read from the repo (UNVERIFIED). |
 | `GITHUB_TOKEN` | built in | `contents: write` on this repository only (create releases, upload files). |
 | `TB_INDEX_BASE`, `GITHUB_REPOSITORY` | optional env | Index source (default: the platform `registry` release); this repo's `owner/name`. |
 
